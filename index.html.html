@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f6b4f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>کۆکەرەوەی چەک</title>
+<style>
+:root{--g:#0f6b4f;--g2:#e7f4ef;--bg:#f4f6f5;--t:#1b2420;--m:#6b7a73;--r:#c0392b;--b:#d9e2de}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--t);padding-bottom:72px}
+header{background:var(--g);color:#fff;padding:14px 16px;font-weight:700;font-size:18px;position:sticky;top:0;z-index:5}
+main{padding:14px;max-width:640px;margin:auto}
+.tab{display:none}.tab.on{display:block}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid var(--b);padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav button{flex:1;border:0;background:none;padding:12px 4px;font:inherit;font-size:14px;color:var(--m)}
+nav button.on{color:var(--g);font-weight:700;border-top:3px solid var(--g);margin-top:-1px}
+.card{background:#fff;border:1px solid var(--b);border-radius:14px;padding:14px;margin-bottom:12px}
+button.p,label.p{display:block;width:100%;text-align:center;background:var(--g);color:#fff;border:0;border-radius:12px;padding:14px;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+button.s{background:var(--g2);color:var(--g);border:0;border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer}
+button.d{background:#fdecea;color:var(--r);border:0;border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer}
+input,textarea{width:100%;padding:12px;border:1px solid var(--b);border-radius:10px;font:inherit;font-size:16px;background:#fff;margin-top:4px}
+label.f{display:block;margin-top:10px;font-size:13px;color:var(--m)}
+.num{direction:ltr;text-align:left}
+#prev{width:100%;border-radius:10px;margin-top:10px;display:none;max-height:240px;object-fit:contain;background:#eee}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.item{display:flex;gap:10px;align-items:center;padding:10px;border-bottom:1px solid var(--b)}
+.item:last-child{border:0}
+.item img{width:64px;height:44px;object-fit:cover;border-radius:6px;background:#eee}
+.item .a{font-weight:700;font-size:17px;direction:ltr}
+.item .n{font-size:12px;color:var(--m);direction:ltr;text-align:right}
+.sum{display:flex;justify-content:space-between;background:var(--g2);border-radius:12px;padding:12px 14px;font-weight:700;color:var(--g);margin-bottom:12px}
+table{width:100%;border-collapse:collapse}
+td,th{padding:10px 6px;border-bottom:1px solid var(--b);text-align:right;font-size:15px}
+td.l{direction:ltr;text-align:left}
+#st{font-size:13px;color:var(--m);margin-top:8px;min-height:18px}
+#toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:20px;display:none;z-index:9}
+.empty{text-align:center;color:var(--m);padding:24px}
+dialog{border:0;border-radius:14px;max-width:92vw;padding:10px}
+dialog img{max-width:100%;max-height:80vh}
+.lb{display:block;text-align:center;margin-top:8px;padding:12px;border-radius:12px;background:var(--g2);color:var(--g);font-weight:700;cursor:pointer}
+.brow{display:flex;gap:8px;align-items:center;padding:8px;background:#fff;border:1px solid var(--b);border-radius:12px;margin-bottom:8px}
+.brow.dup{border-color:var(--r);background:#fff6f5}
+.brow img{width:56px;height:40px;object-fit:cover;border-radius:6px;background:#eee;flex:none}
+.brow input.num{margin:0;padding:8px;font-size:15px}
+#bst{font-size:13px;color:var(--m);margin-top:8px;min-height:18px}
+nav button{font-size:13px}
+</style>
+</head>
+<body>
+<header>📋 کۆکەرەوەی چەکی بانکی</header>
+<main>
+
+<section class="tab on" id="t-scan">
+  <div class="card">
+    <label class="p" for="file">📷 وێنەی چەک بگرە / هەڵبژێرە</label>
+    <input type="file" id="file" accept="image/*" capture="environment" hidden>
+    <img id="prev" alt="">
+    <div id="st"></div>
+  </div>
+  <div class="card" id="form">
+    <label class="f">ژمارەی چەک</label>
+    <input id="no" class="num" inputmode="numeric" placeholder="6770783">
+    <label class="f">بڕی پارە (دینار)</label>
+    <input id="amount" class="num" inputmode="numeric" placeholder="828,000">
+    <label class="f">ڕێکەوتی چەک</label>
+    <input id="cdate" type="date" class="num">
+    <label class="f">ناوی وەرگر / خاوەن چەک</label>
+    <input id="payee" placeholder="ئارەزوومەندانە">
+    <label class="f">تێبینی</label>
+    <input id="note">
+    <div class="row" style="margin-top:14px">
+      <button class="p" id="save">💾 پاشەکەوت</button>
+      <button class="s" id="reset">پاککردنەوە</button>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="t-batch">
+  <div class="card">
+    <label class="p" for="bfile">🖼️ چەند وێنەیەک پێکەوە هەڵبژێرە</label>
+    <input type="file" id="bfile" accept="image/*" multiple hidden>
+    <label class="lb" for="bcam">📷 گرتنی چەک یەک بە یەک (دەچێتە ڕیزەکەوە)</label>
+    <input type="file" id="bcam" accept="image/*" capture="environment" hidden>
+    <div id="bst"></div>
+  </div>
+  <div class="sum"><span id="bcnt">0 / 0 چەک</span><span id="btot" class="num">0 IQD</span></div>
+  <div id="bq"></div>
+  <button class="p" id="bsave">💾 پاشەکەوتکردنی هەموو هەڵبژێردراوەکان</button>
+</section>
+
+<section class="tab" id="t-list">
+  <div class="card">
+    <label class="f" style="margin:0">ڕۆژ</label>
+    <input type="date" id="day" class="num">
+    <input id="q" placeholder="گەڕان بە ژمارە یان بڕ یان ناو" style="margin-top:8px">
+  </div>
+  <div class="sum"><span id="cnt">0 چەک</span><span id="tot" class="num">0</span></div>
+  <div class="card" id="list" style="padding:4px"></div>
+  <button class="s" id="expDay" style="width:100%">⬇️ دابەزاندنی ئەم ڕۆژە (Excel/CSV)</button>
+</section>
+
+<section class="tab" id="t-sum">
+  <div class="sum"><span id="gcnt">0 چەک</span><span id="gtot" class="num">0</span></div>
+  <div class="card" style="padding:4px">
+    <table><thead><tr><th>ڕۆژ</th><th>ژمارە</th><th>کۆ</th></tr></thead><tbody id="days"></tbody></table>
+  </div>
+  <button class="s" id="expAll" style="width:100%">⬇️ دابەزاندنی هەموو چەکەکان (Excel/CSV)</button>
+</section>
+
+</main>
+<nav>
+  <button data-t="scan" class="on">📷<br>سکان</button>
+  <button data-t="batch">📚<br>بەکۆمەڵ</button>
+  <button data-t="list">🗂️<br>لیست</button>
+  <button data-t="sum">📊<br>کۆی ڕۆژانە</button>
+</nav>
+<div id="toast"></div>
+<dialog id="dlg"><img id="dimg" alt=""><br><button class="s" onclick="dlg.close()" style="width:100%;margin-top:8px">داخستن</button></dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2500)};
+const pad=n=>String(n).padStart(2,'0');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const fmt=n=>Number(n||0).toLocaleString('en-US');
+const dlg=$('#dlg');
+
+/* ---------- IndexedDB ---------- */
+let dbp;
+const db=()=>dbp||(dbp=new Promise((res,rej)=>{
+  const r=indexedDB.open('chequeDB',1);
+  r.onupgradeneeded=()=>{const s=r.result.createObjectStore('cheques',{keyPath:'id',autoIncrement:true});s.createIndex('day','day');s.createIndex('no','no')};
+  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);
+}));
+async function tx(mode,fn){const d=await db();return new Promise((res,rej)=>{const t=d.transaction('cheques',mode);const rq=fn(t.objectStore('cheques'));t.oncomplete=()=>res(rq&&rq.result);t.onerror=()=>rej(t.error)})}
+const getAll=()=>tx('readonly',s=>s.getAll());
+const put=o=>tx('readwrite',s=>s.put(o));
+const del=id=>tx('readwrite',s=>s.delete(id));
+
+/* ---------- tabs ---------- */
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  if(t==='list')renderList();
+  if(t==='sum')renderSum();
+  scrollTo(0,0);
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.t));
+
+/* ---------- image helpers ---------- */
+function canvasFrom(bmp,maxW,filter){
+  const sc=Math.min(1,maxW/bmp.width);
+  const c=document.createElement('canvas');c.width=Math.round(bmp.width*sc);c.height=Math.round(bmp.height*sc);
+  const x=c.getContext('2d');if(filter)x.filter=filter;x.drawImage(bmp,0,0,c.width,c.height);return c;
+}
+const toBlob=(c,q)=>new Promise(r=>c.toBlob(r,'image/jpeg',q));
+
+/* ---------- OCR parsing ---------- */
+function normDigits(s){
+  return s.replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+}
+function mostCommon(arr,prefer){
+  if(!arr.length)return '';
+  const m={};arr.forEach(v=>m[v]=(m[v]||0)+1);
+  return Object.keys(m).sort((a,b)=>m[b]-m[a]||prefer(b,a))[0];
+}
+function parse(text){
+  text=normDigits(text);
+  const out={};
+  // amount: numbers with thousands separators, ignore the fixed 1,000 stamp fee unless it's the only one
+  const am=(text.match(/\d{1,3}(?:[,.\s]\d{3})+/g)||[]).map(s=>s.replace(/\D/g,'')).filter(s=>s.length>=4);
+  let cand=am.filter(v=>v!=='1000');if(!cand.length)cand=am;
+  out.amount=mostCommon(cand,(a,b)=>Number(a)-Number(b));
+  // cheque number: 7 digits
+  const nos=(text.match(/(?<!\d)\d{7}(?!\d)/g)||[]);
+  out.no=mostCommon(nos,()=>0);
+  // date: 2026 10 04 / 2026/10/04
+  const m=text.match(/(20\d{2})\s*[\/\-.\s]\s*(\d{1,2})\s*[\/\-.\s]\s*(\d{1,2})/);
+  if(m&&+m[2]>=1&&+m[2]<=12&&+m[3]>=1&&+m[3]<=31)out.date=m[1]+'-'+pad(+m[2])+'-'+pad(+m[3]);
+  return out;
+}
+let tessLoading;
+function loadTess(){
+  if(window.Tesseract)return Promise.resolve();
+  return tessLoading||(tessLoading=new Promise((res,rej)=>{
+    const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload=res;s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);
+  }));
+}
+
+/* ---------- scan flow ---------- */
+let cur={blob:null,editId:null,day:null};
+$('#file').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f)return;
+  const st=$('#st');
+  try{
+    const bmp=await createImageBitmap(f,{imageOrientation:'from-image'});
+    const thumb=canvasFrom(bmp,1000);
+    cur.blob=await toBlob(thumb,.72);
+    const p=$('#prev');p.src=URL.createObjectURL(cur.blob);p.style.display='block';
+    st.textContent='⏳ خەریکی خوێندنەوەی چەکەکەم...';
+    let barcodeNo='';
+    if('BarcodeDetector' in window){
+      try{
+        const bd=new BarcodeDetector();
+        const r=await bd.detect(bmp);
+        const d=(r.map(x=>x.rawValue.replace(/\D/g,'')).find(v=>v.length===7))||'';
+        barcodeNo=d;
+      }catch(_){}
+    }
+    let res={};
+    try{
+      await loadTess();
+      const c=canvasFrom(bmp,1700,'grayscale(1) contrast(1.35)');
+      const {data}=await Tesseract.recognize(c,'eng',{logger:m=>{if(m.status==='recognizing text')st.textContent='⏳ خوێندنەوە '+Math.round(m.progress*100)+'%'}});
+      res=parse(data.text);
+    }catch(err){st.textContent='⚠️ خوێندنەوەی خۆکار سەرکەوتوو نەبوو (ئینتەرنێت پێویستە بۆ یەکەمجار). بە دەست پڕی بکەرەوە.'}
+    const no=barcodeNo||res.no||'';
+    if(no)$('#no').value=no;
+    if(res.amount)$('#amount').value=fmt(res.amount);
+    if(res.date)$('#cdate').value=res.date;
+    if(no||res.amount)st.textContent='✅ خوێندرایەوە — تکایە بڕ و ژمارەکە دووبارە بپشکنە پێش پاشەکەوت.';
+    else if(!st.textContent.startsWith('⚠️'))st.textContent='نەتوانرا بخوێندرێتەوە، بە دەست پڕی بکەرەوە.';
+  }catch(err){st.textContent='هەڵە: '+err.message}
+  e.target.value='';
+});
+$('#amount').addEventListener('input',e=>{const d=e.target.value.replace(/\D/g,'');e.target.value=d?fmt(d):''});
+
+function resetForm(){
+  cur={blob:null,editId:null,day:null};
+  ['no','amount','cdate','payee','note'].forEach(i=>$('#'+i).value='');
+  $('#prev').style.display='none';$('#st').textContent='';
+}
+$('#reset').onclick=resetForm;
+
+$('#save').onclick=async()=>{
+  const amount=Number($('#amount').value.replace(/\D/g,''));
+  const no=$('#no').value.trim();
+  if(!amount){toast('بڕی پارە بنووسە');return}
+  const all=await getAll();
+  if(no&&all.some(x=>x.no===no&&x.id!==cur.editId)){
+    const d=all.find(x=>x.no===no&&x.id!==cur.editId);
+    if(!confirm('⚠️ ئەم چەکە (ژمارە '+no+') پێشتر تۆمارکراوە لە '+d.day+' بە بڕی '+fmt(d.amount)+'.\nدووبارە پاشەکەوتی بکەم؟'))return;
+  }
+  const o={no,amount,cdate:$('#cdate').value,payee:$('#payee').value.trim(),note:$('#note').value.trim(),img:cur.blob,day:cur.day||today(),ts:Date.now()};
+  if(cur.editId)o.id=cur.editId;
+  await put(o);
+  toast('✅ پاشەکەوتکرا');resetForm();
+};
+
+/* ---------- list ---------- */
+$('#day').value=today();
+$('#day').onchange=renderList;$('#q').oninput=renderList;
+async function renderList(){
+  const day=$('#day').value||today(),q=$('#q').value.trim().replace(/,/g,'');
+  let items=(await getAll()).filter(x=>x.day===day);
+  if(q)items=items.filter(x=>(x.no||'').includes(q)||String(x.amount).includes(q)||(x.payee||'').includes(q)||(x.note||'').includes(q));
+  items.sort((a,b)=>b.ts-a.ts);
+  $('#cnt').textContent=items.length+' چەک';
+  $('#tot').textContent=fmt(items.reduce((s,x)=>s+x.amount,0))+' IQD';
+  const L=$('#list');L.innerHTML='';
+  if(!items.length){L.innerHTML='<div class="empty">هیچ چەکێک نییە</div>';return}
+  items.forEach(x=>{
+    const d=document.createElement('div');d.className='item';
+    const url=x.img?URL.createObjectURL(x.img):'';
+    d.innerHTML=`<img src="${url}" alt=""><div style="flex:1"><div class="a">${fmt(x.amount)}</div><div class="n">#${x.no||'—'} ${x.payee?'· '+x.payee:''}</div></div><button class="s">✏️</button><button class="d">🗑️</button>`;
+    d.querySelector('img').onclick=()=>{if(url){$('#dimg').src=url;dlg.showModal()}};
+    d.querySelector('.s').onclick=()=>{
+      cur={blob:x.img,editId:x.id,day:x.day};
+      $('#no').value=x.no||'';$('#amount').value=fmt(x.amount);$('#cdate').value=x.cdate||'';$('#payee').value=x.payee||'';$('#note').value=x.note||'';
+      if(url){$('#prev').src=url;$('#prev').style.display='block'}
+      $('#st').textContent='دەستکاریکردن...';showTab('scan');
+    };
+    d.querySelector('.d').onclick=async()=>{if(confirm('ئەم چەکە بسڕدرێتەوە؟')){await del(x.id);renderList()}};
+    L.appendChild(d);
+  });
+}
+
+/* ---------- summary ---------- */
+async function renderSum(){
+  const all=await getAll(),g={};
+  all.forEach(x=>{(g[x.day]=g[x.day]||{n:0,s:0}).n++;g[x.day].s+=x.amount});
+  $('#gcnt').textContent=all.length+' چەک';
+  $('#gtot').textContent=fmt(all.reduce((s,x)=>s+x.amount,0))+' IQD';
+  const B=$('#days');B.innerHTML='';
+  Object.keys(g).sort().reverse().forEach(d=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="l">${d}</td><td>${g[d].n}</td><td class="l">${fmt(g[d].s)}</td>`;
+    tr.onclick=()=>{$('#day').value=d;showTab('list')};
+    B.appendChild(tr);
+  });
+  if(!all.length)B.innerHTML='<tr><td colspan="3" class="empty">هیچ داتایەک نییە</td></tr>';
+}
+
+/* ---------- export ---------- */
+function csv(items,name){
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const rows=[['ڕۆژی وەرگرتن','ژمارەی چەک','بڕ','ڕێکەوتی چەک','ناو','تێبینی']];
+  items.sort((a,b)=>a.ts-b.ts).forEach(x=>rows.push([x.day,x.no,x.amount,x.cdate,x.payee,x.note]));
+  rows.push([]);rows.push(['کۆ','',items.reduce((s,x)=>s+x.amount,0)]);
+  const blob=new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+}
+$('#expDay').onclick=async()=>{const d=$('#day').value||today();csv((await getAll()).filter(x=>x.day===d),'cheques-'+d+'.csv')};
+$('#expAll').onclick=async()=>csv(await getAll(),'cheques-all.csv');
+
+/* ---------- batch ---------- */
+let worker;
+async function getWorker(){await loadTess();return worker||(worker=await Tesseract.createWorker('eng'))}
+async function analyze(file){
+  const bmp=await createImageBitmap(file,{imageOrientation:'from-image'});
+  const blob=await toBlob(canvasFrom(bmp,1000),.72);
+  let no='',res={};
+  if('BarcodeDetector' in window){try{const r=await new BarcodeDetector().detect(bmp);no=(r.map(x=>x.rawValue.replace(/\D/g,'')).find(v=>v.length===7))||''}catch(_){}}
+  try{const w=await getWorker();const {data}=await w.recognize(canvasFrom(bmp,1700,'grayscale(1) contrast(1.35)'));res=parse(data.text)}catch(_){}
+  return {blob,no:no||res.no||'',amount:res.amount||'',cdate:res.date||''};
+}
+const Q=[];let qid=0,busy=false;
+function addFiles(files){
+  files.forEach(f=>Q.push({id:++qid,file:f,status:'wait',ok:true}));
+  renderQ();run();
+}
+$('#bfile').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
+$('#bcam').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
+async function run(){
+  if(busy)return;busy=true;
+  let it;
+  while((it=Q.find(x=>x.status==='wait'))){
+    it.status='work';updQ();
+    try{Object.assign(it,await analyze(it.file));it.status='done'}catch(_){it.status='err'}
+    it.file=null;await renderQ();
+  }
+  busy=false;updQ();
+}
+function updQ(){
+  const sel=Q.filter(x=>x.ok&&Number(x.amount)>0);
+  $('#bcnt').textContent=sel.length+' / '+Q.length+' چەک';
+  $('#btot').textContent=fmt(sel.reduce((s,x)=>s+Number(x.amount),0))+' IQD';
+  const w=Q.filter(x=>x.status==='wait'||x.status==='work').length;
+  $('#bst').textContent=w?'⏳ خەریکی خوێندنەوەم... ماوە: '+w:(Q.length?'✅ ئامادەیە — بڕەکان بپشکنە و پاشان پاشەکەوت بکە':'');
+}
+async function renderQ(){
+  const have=new Set((await getAll()).map(x=>x.no).filter(Boolean));
+  const seen={};const box=$('#bq');box.innerHTML='';
+  Q.forEach(it=>{
+    const n=(it.no||'').trim();
+    it.dup=!!n&&(have.has(n)||!!seen[n]);if(n)seen[n]=true;
+    if(it.status==='done'&&!it.chk){it.chk=1;if(it.dup)it.ok=false}
+    const d=document.createElement('div');d.className='brow'+(it.dup?' dup':'');
+    const url=it.blob?URL.createObjectURL(it.blob):'';
+    const note=it.dup?'<div style="color:var(--r);font-size:12px">⚠️ ئەم چەکە پێشتر تۆمارکراوە / دووبارەیە</div>':(it.status==='err'?'<div style="color:var(--r);font-size:12px">⚠️ نەخوێندرایەوە، بە دەست پڕی بکەرەوە</div>':'');
+    d.innerHTML=`<input type="checkbox" style="width:22px;margin:0;flex:none" ${it.ok?'checked':''}>
+      ${url?`<img src="${url}" alt="">`:'<div style="width:56px;text-align:center;flex:none">⏳</div>'}
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+        <input class="num n" inputmode="numeric" placeholder="ژمارەی چەک" value="${n}">
+        <input class="num a" inputmode="numeric" placeholder="بڕ" value="${it.amount?fmt(it.amount):''}">${note}
+      </div><button class="d">✕</button>`;
+    const ck=d.querySelector('input[type=checkbox]');ck.onchange=()=>{it.ok=ck.checked;updQ()};
+    d.querySelector('.n').oninput=e=>{it.no=e.target.value.trim()};
+    d.querySelector('.a').oninput=e=>{const v=e.target.value.replace(/\D/g,'');e.target.value=v?fmt(v):'';it.amount=v;updQ()};
+    d.querySelector('.d').onclick=()=>{const i=Q.indexOf(it);if(i>=0)Q.splice(i,1);renderQ()};
+    box.appendChild(d);
+  });
+  updQ();
+}
+$('#bsave').onclick=async()=>{
+  const have=new Set((await getAll()).map(x=>x.no).filter(Boolean));
+  const sel=Q.filter(x=>x.ok&&Number(x.amount)>0&&x.status!=='wait'&&x.status!=='work');
+  if(!sel.length){toast('هیچ چەکێک هەڵنەبژێردراوە');return}
+  let n=0,sum=0,skip=0;
+  for(const it of sel){
+    const no=(it.no||'').trim();
+    if(no&&have.has(no)){skip++;it.ok=false;continue}
+    await put({no,amount:Number(it.amount),cdate:it.cdate||'',payee:'',note:'',img:it.blob,day:today(),ts:Date.now()+n});
+    if(no)have.add(no);n++;sum+=Number(it.amount);
+    Q.splice(Q.indexOf(it),1);
+  }
+  await renderQ();
+  toast('✅ '+n+' چەک پاشەکەوتکرا · کۆ '+fmt(sum)+(skip?' · '+skip+' دووبارە نەگیرا':''));
+};
+
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
