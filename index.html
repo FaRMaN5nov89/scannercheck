@@ -48,14 +48,28 @@ dialog img{max-width:100%;max-height:80vh}
 .brow img{width:56px;height:40px;object-fit:cover;border-radius:6px;background:#eee;flex:none}
 .brow input.num{margin:0;padding:8px;font-size:15px}
 #bst{font-size:13px;color:var(--m);margin-top:8px;min-height:18px}
-nav button{font-size:13px}
+nav button{font-size:12px;padding:10px 2px}
+#vbox video{background:#000;min-height:180px;object-fit:cover}
 </style>
 </head>
 <body>
 <header>📋 کۆکەرەوەی چەکی بانکی</header>
 <main>
 
-<section class="tab on" id="t-scan">
+<section class="tab on" id="t-auto">
+  <div class="card" style="padding:10px">
+    <div id="vbox" style="position:relative;background:#000;border-radius:12px;overflow:hidden">
+      <video id="vid" playsinline muted autoplay style="width:100%;display:block;max-height:46vh"></video>
+      <div id="vmsg" style="position:absolute;left:0;right:0;bottom:0;padding:10px;background:rgba(0,0,0,.6);color:#fff;text-align:center;font-weight:700;font-size:15px">کامێرا بکەرەوە</div>
+    </div>
+    <button class="p" id="camBtn" style="margin-top:10px">🎥 دەستپێکردنی سکانی خۆکار</button>
+    <div style="font-size:12px;color:var(--m);margin-top:8px;line-height:1.7">چەک ڕێک و ڕووناک بگرە بەردەم کامێرا، بارکۆدی خوارەوە دەربکەوێت. کاتێک خوێندرایەوە دەنگێک دێت و خۆکارانە پاشەکەوت دەبێت. پاشان چەکی داهاتوو بخە بەردەم.</div>
+  </div>
+  <div class="sum"><span id="acnt">0 چەک</span><span id="atot" class="num">0 IQD</span></div>
+  <div id="alist"></div>
+</section>
+
+<section class="tab" id="t-scan">
   <div class="card">
     <label class="p" for="file">📷 وێنەی چەک بگرە / هەڵبژێرە</label>
     <input type="file" id="file" accept="image/*" capture="environment" hidden>
@@ -114,7 +128,8 @@ nav button{font-size:13px}
 
 </main>
 <nav>
-  <button data-t="scan" class="on">📷<br>سکان</button>
+  <button data-t="auto" class="on">🎥<br>ئۆتۆ</button>
+  <button data-t="scan">📷<br>سکان</button>
   <button data-t="batch">📚<br>بەکۆمەڵ</button>
   <button data-t="list">🗂️<br>لیست</button>
   <button data-t="sum">📊<br>کۆی ڕۆژانە</button>
@@ -144,6 +159,7 @@ const del=id=>tx('readwrite',s=>s.delete(id));
 
 /* ---------- tabs ---------- */
 function showTab(t){
+  if(t!=='auto'&&typeof autoOn!=='undefined'&&autoOn)stopCam();
   document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   if(t==='list')renderList();
@@ -173,9 +189,10 @@ function parse(text){
   text=normDigits(text);
   const out={};
   // amount: numbers with thousands separators, ignore the fixed 1,000 stamp fee unless it's the only one
-  const am=(text.match(/\d{1,3}(?:[,.\s]\d{3})+/g)||[]).map(s=>s.replace(/\D/g,'')).filter(s=>s.length>=4);
+  const am=(text.match(/(?<![\d,.])\d{1,3}(?:[,.]\d{3})+(?![\d])/g)||[]).map(s=>s.replace(/\D/g,'')).filter(s=>s.length>=4);
   let cand=am.filter(v=>v!=='1000');if(!cand.length)cand=am;
   out.amount=mostCommon(cand,(a,b)=>Number(a)-Number(b));
+  out.cnt=cand.filter(v=>v===out.amount).length;
   // cheque number: 7 digits
   const nos=(text.match(/(?<!\d)\d{7}(?!\d)/g)||[]);
   out.no=mostCommon(nos,()=>0);
@@ -378,6 +395,85 @@ $('#bsave').onclick=async()=>{
   await renderQ();
   toast('✅ '+n+' چەک پاشەکەوتکرا · کۆ '+fmt(sum)+(skip?' · '+skip+' دووبارە نەگیرا':''));
 };
+
+/* ---------- auto scan (live camera) ---------- */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let stream=null,autoOn=false,actx=null;
+const A={n:0,sum:0},recent=[];
+const vid=$('#vid'),vmsg=$('#vmsg');
+function beep(f,d){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;g.gain.value=.15;o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+d)}catch(_){}}
+const amsg=(t,c)=>{vmsg.textContent=t;vmsg.style.background=c||'rgba(0,0,0,.6)'};
+const OKC='rgba(15,107,79,.9)',BADC='rgba(192,57,43,.9)';
+function renderAuto(){
+  $('#acnt').textContent=A.n+' چەک (ئەم جارە)';
+  $('#atot').textContent=fmt(A.sum)+' IQD';
+  const L=$('#alist');L.innerHTML='';
+  recent.slice(0,8).forEach(x=>{
+    const d=document.createElement('div');d.className='brow';
+    d.innerHTML=`<div style="flex:1"><div style="font-weight:700;font-size:17px;direction:ltr;text-align:right">${fmt(x.amount)}</div><div style="font-size:12px;color:var(--m);direction:ltr;text-align:right">#${x.no||'—'}</div></div><button class="d">↩️ هەڵوەشاندنەوە</button>`;
+    d.querySelector('button').onclick=async()=>{await del(x.id);A.n--;A.sum-=x.amount;recent.splice(recent.indexOf(x),1);renderAuto()};
+    L.appendChild(d);
+  });
+}
+async function startCam(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    vid.srcObject=stream;await vid.play();
+    autoOn=true;$('#camBtn').textContent='⏹️ وەستاندن';
+    autoLoop();
+  }catch(e){amsg('⚠️ ڕێگەی کامێرا نەدراوە',BADC)}
+}
+function stopCam(){
+  autoOn=false;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  vid.srcObject=null;$('#camBtn').textContent='🎥 دەستپێکردنی سکانی خۆکار';amsg('کامێرا بکەرەوە');
+}
+$('#camBtn').onclick=()=>autoOn?stopCam():startCam();
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&autoOn)stopCam()});
+
+async function autoLoop(){
+  const cv=document.createElement('canvas'),sm=document.createElement('canvas');
+  let lastKey='',hits=0,lastSaved='',waitClear=false;
+  let bd=null;if('BarcodeDetector' in window){try{bd=new BarcodeDetector()}catch(_){}}
+  amsg('⏳ ئامادەکردنی خوێنەرەوە...');
+  try{await getWorker()}catch(_){amsg('⚠️ بۆ یەکەمجار ئینتەرنێت پێویستە',BADC);stopCam();return}
+  amsg('چەکەکە بخە بەردەم کامێرا');
+  while(autoOn){
+    if(!vid.videoWidth){await sleep(200);continue}
+    const sc=Math.min(1,1600/vid.videoWidth);
+    cv.width=Math.round(vid.videoWidth*sc);cv.height=Math.round(vid.videoHeight*sc);
+    cv.getContext('2d').drawImage(vid,0,0,cv.width,cv.height);
+    let no='';
+    if(bd){try{const r=await bd.detect(cv);no=(r.map(x=>x.rawValue.replace(/\D/g,'')).find(v=>v.length===7))||''}catch(_){}}
+    if(no&&no===lastSaved){amsg('✅ پاشەکەوتکرا — چەکی داهاتوو بخە بەردەم',OKC);await sleep(400);continue}
+    if(no&&no!==lastSaved)waitClear=false;
+    let res={};
+    try{const w=await getWorker();const {data}=await w.recognize(prep(cv));res=parse(data.text)}catch(_){}
+    const amount=res.amount?Number(res.amount):0;
+    const n=no||res.no||'';
+    if(!amount||amount<1000){hits=0;lastKey='';waitClear=false;amsg('چەکەکە ڕێک و ڕووناک بگرە بەردەم کامێرا');continue}
+    if(n&&n===lastSaved||waitClear&&!n){amsg('✅ پاشەکەوتکرا — چەکی داهاتوو بخە بەردەم',OKC);await sleep(300);continue}
+    const key=n+'|'+amount;
+    hits=key===lastKey?hits+1:1;lastKey=key;
+    const need=(n&&res.cnt>=2)?2:3;
+    amsg('🔍 '+fmt(amount)+(n?'  ·  #'+n:'')+'   ('+hits+'/'+need+')');
+    if(hits<need)continue;
+    hits=0;lastKey='';
+    if(n&&(await getAll()).some(x=>x.no===n)){
+      beep(220,.35);if(navigator.vibrate)navigator.vibrate([120,60,120]);
+      amsg('⚠️ ئەم چەکە پێشتر تۆمارکراوە #'+n,BADC);lastSaved=n;waitClear=true;await sleep(900);continue;
+    }
+    sm.width=Math.min(800,cv.width);sm.height=Math.round(cv.height*sm.width/cv.width);
+    sm.getContext('2d').drawImage(cv,0,0,sm.width,sm.height);
+    const blob=await toBlob(sm,.7);
+    const id=await put({no:n,amount,cdate:res.date||'',payee:'',note:'ئۆتۆ',img:blob,day:today(),ts:Date.now()});
+    A.n++;A.sum+=amount;recent.unshift({id,no:n,amount});renderAuto();
+    beep(880,.12);if(navigator.vibrate)navigator.vibrate(80);
+    amsg('✅ پاشەکەوتکرا  '+fmt(amount)+(n?'  ·  #'+n:''),OKC);
+    lastSaved=n;waitClear=true;await sleep(700);
+  }
+}
+renderAuto();
 
 /* warm up OCR in background */
 setTimeout(()=>{getWorker().catch(()=>{})},1500);
