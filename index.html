@@ -199,33 +199,14 @@ $('#file').addEventListener('change',async e=>{
   const f=e.target.files[0];if(!f)return;
   const st=$('#st');
   try{
-    const bmp=await createImageBitmap(f,{imageOrientation:'from-image'});
-    const thumb=canvasFrom(bmp,1000);
-    cur.blob=await toBlob(thumb,.72);
-    const p=$('#prev');p.src=URL.createObjectURL(cur.blob);p.style.display='block';
     st.textContent='⏳ خەریکی خوێندنەوەی چەکەکەم...';
-    let barcodeNo='';
-    if('BarcodeDetector' in window){
-      try{
-        const bd=new BarcodeDetector();
-        const r=await bd.detect(bmp);
-        const d=(r.map(x=>x.rawValue.replace(/\D/g,'')).find(v=>v.length===7))||'';
-        barcodeNo=d;
-      }catch(_){}
-    }
-    let res={};
-    try{
-      await loadTess();
-      const c=canvasFrom(bmp,1700,'grayscale(1) contrast(1.35)');
-      const {data}=await Tesseract.recognize(c,'eng',{logger:m=>{if(m.status==='recognizing text')st.textContent='⏳ خوێندنەوە '+Math.round(m.progress*100)+'%'}});
-      res=parse(data.text);
-    }catch(err){st.textContent='⚠️ خوێندنەوەی خۆکار سەرکەوتوو نەبوو (ئینتەرنێت پێویستە بۆ یەکەمجار). بە دەست پڕی بکەرەوە.'}
-    const no=barcodeNo||res.no||'';
-    if(no)$('#no').value=no;
-    if(res.amount)$('#amount').value=fmt(res.amount);
-    if(res.date)$('#cdate').value=res.date;
-    if(no||res.amount)st.textContent='✅ خوێندرایەوە — تکایە بڕ و ژمارەکە دووبارە بپشکنە پێش پاشەکەوت.';
-    else if(!st.textContent.startsWith('⚠️'))st.textContent='نەتوانرا بخوێندرێتەوە، بە دەست پڕی بکەرەوە.';
+    const pv=$('#prev');pv.src=URL.createObjectURL(f);pv.style.display='block';
+    const r=await analyze(f);
+    cur.blob=r.blob;
+    if(r.no)$('#no').value=r.no;
+    if(r.amount)$('#amount').value=fmt(r.amount);
+    if(r.cdate)$('#cdate').value=r.cdate;
+    st.textContent=(r.no||r.amount)?'✅ خوێندرایەوە — تکایە بڕ و ژمارەکە دووبارە بپشکنە پێش پاشەکەوت.':'نەتوانرا بخوێندرێتەوە، بە دەست پڕی بکەرەوە.';
   }catch(err){st.textContent='هەڵە: '+err.message}
   e.target.value='';
 });
@@ -310,14 +291,28 @@ $('#expDay').onclick=async()=>{const d=$('#day').value||today();csv((await getAl
 $('#expAll').onclick=async()=>csv(await getAll(),'cheques-all.csv');
 
 /* ---------- batch ---------- */
-let worker;
-async function getWorker(){await loadTess();return worker||(worker=await Tesseract.createWorker('eng'))}
+let worker,wp;
+function getWorker(){
+  return wp||(wp=(async()=>{
+    await loadTess();
+    const w=await Tesseract.createWorker('eng');
+    await w.setParameters({tessedit_char_whitelist:'0123456789,./- ',tessedit_pageseg_mode:'11'});
+    worker=w;return w;
+  })());
+}
+function prep(bmp){
+  const c=canvasFrom(bmp,1100),x=c.getContext('2d');
+  const im=x.getImageData(0,0,c.width,c.height),d=im.data;
+  for(let i=0;i<d.length;i+=4){let g=.299*d[i]+.587*d[i+1]+.114*d[i+2];g=(g-128)*1.4+128;g=g<0?0:g>255?255:g;d[i]=d[i+1]=d[i+2]=g}
+  x.putImageData(im,0,0);return c;
+}
 async function analyze(file){
   const bmp=await createImageBitmap(file,{imageOrientation:'from-image'});
-  const blob=await toBlob(canvasFrom(bmp,1000),.72);
+  const blob=await toBlob(canvasFrom(bmp,800),.7);
   let no='',res={};
   if('BarcodeDetector' in window){try{const r=await new BarcodeDetector().detect(bmp);no=(r.map(x=>x.rawValue.replace(/\D/g,'')).find(v=>v.length===7))||''}catch(_){}}
-  try{const w=await getWorker();const {data}=await w.recognize(canvasFrom(bmp,1700,'grayscale(1) contrast(1.35)'));res=parse(data.text)}catch(_){}
+  try{const w=await getWorker();const {data}=await w.recognize(prep(bmp));res=parse(data.text)}catch(_){}
+  bmp.close&&bmp.close();
   return {blob,no:no||res.no||'',amount:res.amount||'',cdate:res.date||''};
 }
 const Q=[];let qid=0,busy=false;
@@ -383,6 +378,9 @@ $('#bsave').onclick=async()=>{
   await renderQ();
   toast('✅ '+n+' چەک پاشەکەوتکرا · کۆ '+fmt(sum)+(skip?' · '+skip+' دووبارە نەگیرا':''));
 };
+
+/* warm up OCR in background */
+setTimeout(()=>{getWorker().catch(()=>{})},1500);
 
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 </script>
